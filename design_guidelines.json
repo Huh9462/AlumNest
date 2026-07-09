@@ -1,0 +1,126 @@
+{
+  "theme": "light",
+  "archetype": "Pastel & Soft with Neo-Brutalist Contrast",
+  "typography": {
+    "headings": "Outfit, sans-serif",
+    "body": "Manrope, sans-serif",
+    "weights": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "bold": 700,
+      "black": 900
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tighter leading-tight font-bold",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight leading-snug font-bold",
+      "h3": "text-xl sm:text-2xl tracking-tight font-bold",
+      "h4": "text-lg sm:text-xl font-bold",
+      "body": "text-base leading-relaxed text-[#404040]",
+      "small": "text-sm tracking-wide text-[#525252]",
+      "overline": "text-xs uppercase tracking-[0.2em] font-black text-[#171717]"
+    }
+  },
+  "colors": {
+    "background": {
+      "default": "#FAFAFA",
+      "paper": "#FFFFFF",
+      "muted": "#F5F5F5"
+    },
+    "text": {
+      "primary": "#171717",
+      "secondary": "#404040",
+      "disabled": "#A3A3A3"
+    },
+    "primary": {
+      "DEFAULT": "#171717",
+      "foreground": "#FFFFFF"
+    },
+    "accent": {
+      "mint": "#D1FAE5",
+      "yellow": "#FEF08A",
+      "blue": "#DBEAFE",
+      "coral": "#FFEDD5"
+    },
+    "status": {
+      "success": "#22C55E",
+      "warning": "#F59E0B",
+      "error": "#EF4444",
+      "available": "#22C55E",
+      "unavailable": "#A3A3A3"
+    },
+    "border": "#171717"
+  },
+  "surfaces": {
+    "card": "bg-white rounded-2xl border-2 border-[#171717] shadow-[4px_4px_0px_#171717] transition-transform hover:-translate-y-1 hover:shadow-[6px_6px_0px_#171717]",
+    "card_flat": "bg-white rounded-xl border border-[#171717]",
+    "button_primary": "bg-[#171717] text-white rounded-full px-6 py-3 font-bold transition-transform hover:scale-105 active:scale-95",
+    "button_secondary": "bg-white text-[#171717] border-2 border-[#171717] rounded-full px-6 py-3 font-bold transition-colors hover:bg-[#F5F5F5] shadow-[2px_2px_0px_#171717] active:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
+    "button_accent_mint": "bg-[#D1FAE5] text-[#171717] border-2 border-[#171717] rounded-full px-6 py-3 font-bold shadow-[2px_2px_0px_#171717] transition-transform hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_#171717] active:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
+    "glass_header": "backdrop-blur-xl bg-[#FAFAFA]/90 border-b-2 border-[#171717]",
+    "input": "bg-white border-2 border-[#171717] rounded-xl px-4 py-3 font-medium focus:outline-none focus:ring-0 focus:border-[#171717] focus:shadow-[4px_4px_0px_#D1FAE5] transition-all"
+  },
+  "layouts": {
+    "spacing": "Generous spacing: use p-6, p-8, p-12 for containers. gap-6 to gap-10 for grids.",
+    "grid_dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6. Use col-span-2 or col-span-3 for main content, col-span-1 for sidebars.",
+    "grid_bento": "grid grid-cols-1 md:grid-cols-12 gap-6. Hero elements span 8 cols, supporting span 4.",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+  },
+  "components": {
+    "alumni_card": "A bento-style card. Includes profile image, name (h3), college & stream, and a distinct Working Hours pill. The primary CTA 'Chat Now' should use button_secondary style.",
+    "working_hours_pill": "Rounded-full px-3 py-1 text-xs font-bold border-2 border-[#171717]. If Available: bg-[#22C55E] text-white. If Unavailable: bg-[#F5F5F5] text-[#171717] with countdown.",
+    "alupal_chat": "A visually distinct interface. AI messages have pale blue (#DBEAFE) backgrounds with hard borders. User messages have pale coral (#FFEDD5). DO NOT use purple (#7351B7).",
+    "leaderboard_row": "Flex container. Top 3 ranks have distinct accent backgrounds (mint, yellow, blue) and border-2 border-[#171717].",
+    "scorecard": "A striking certificate card. Use a heavy border, large typography for points/streak, and a bold accent color background. It should look like a premium printable ticket."
+  },
+  "visual_enhancers": {
+    "motion": "Use crisp, snappy animations. Framer motion spring transitions with high stiffness. No slow, mushy eases.",
+    "icons": "Use @phosphor-icons/react (Duotone or Bold weights). Icons should feel chunky and deliberate.",
+    "textures": "Clean flat colors. No gradients. The aesthetic relies entirely on high contrast borders, shadows, and pastel fills."
+  },
+  "accessibility": {
+    "contrast": "Black/Charcoal text on pastel backgrounds naturally meets high APCA/WCAG contrast ratios.",
+    "focus": "Focus states must use the distinct shadow approach defined in 'input' surface rather than standard blurred rings.",
+    "aria": "Include aria-labels for icon-only buttons. All interactive elements MUST include data-testid."
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.pexels.com/photos/7972942/pexels-photo-7972942.jpeg",
+        "description": "Young adults studying with laptops on a campus outdoor table.",
+        "category": "hero_landing",
+        "usage": "Use in the landing page hero section to establish context."
+      },
+      {
+        "url": "https://images.pexels.com/photos/19193975/pexels-photo-19193975.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Modern university building with trees casting shadows.",
+        "category": "campus_background",
+        "usage": "Use as a background element or in the AluPal introduction section."
+      },
+      {
+        "url": "https://images.pexels.com/photos/18699972/pexels-photo-18699972.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Portrait of a smiling young man in a classroom.",
+        "category": "alumni_profile",
+        "usage": "Use as a placeholder image for alumni profile cards."
+      }
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install dependencies: yarn add @phosphor-icons/react framer-motion clsx tailwind-merge sonner",
+    "Note: Use .js or .jsx extensions for files, NOT .tsx, as the project uses JavaScript.",
+    "Implement pure HTML/Tailwind for marketing pages and Shadcn components customized with the defined surface classes for the app/dashboard.",
+    "Do NOT use pure transparent backgrounds for the header; use the 'glass_header' surface definition.",
+    "Ensure the 'AluPal' interface feels conversational but structured. Avoid ANY purple tones.",
+    "The Working Hours indicator is critical: build a robust component that clearly communicates availability using the defined pill styles.",
+    "For the certificate/scorecard, design it like a high-end printable ticket or badge (using the neo-brutalist shadow style)."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms.",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file.",
+    "Create depth through layered design elements with z-index hierarchy and the hard shadow styles defined.",
+    "NEVER use placeholder text for images. Use the provided image URLs.",
+    "All interactive and key informational elements MUST include a data-testid attribute.",
+    "Prioritize using pre-existing components from src/components/ui when applicable.",
+    "Use sonner for toasts."
+  ]
+}
