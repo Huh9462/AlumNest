@@ -1,0 +1,75 @@
+export const HOME = {
+  emergentLink: "home-emergent-link",
+};
+
+export const NAV = {
+  brand: "nav-brand",
+  linkAlumni: "nav-link-alumni",
+  linkAluPal: "nav-link-alupal",
+  linkLeaderboard: "nav-link-leaderboard",
+  linkCertificate: "nav-link-certificate",
+  login: "nav-login",
+  signup: "nav-signup",
+  logout: "nav-logout",
+  userChip: "nav-user-chip",
+};
+
+export const LANDING = {
+  ctaSignup: "landing-cta-signup",
+  ctaBrowse: "landing-cta-browse",
+  ctaAluPal: "landing-cta-alupal",
+};
+
+export const AUTH = {
+  emailInput: "auth-email",
+  passwordInput: "auth-password",
+  nameInput: "auth-name",
+  roleAlumni: "auth-role-alumni",
+  roleJunior: "auth-role-junior",
+  schoolInput: "auth-school",
+  gradeSelect: "auth-grade",
+  collegeInput: "auth-college",
+  streamInput: "auth-stream",
+  bioInput: "auth-bio",
+  whStart: "auth-wh-start",
+  whEnd: "auth-wh-end",
+  idCardInput: "auth-idcard",
+  submitBtn: "auth-submit",
+  switchModeLink: "auth-switch-mode",
+  errorMsg: "auth-error",
+};
+
+export const ALUMNI = {
+  list: "alumni-list",
+  card: (id) => `alumni-card-${id}`,
+  cardName: (id) => `alumni-card-name-${id}`,
+  filterCollege: "alumni-filter-college",
+  filterStream: "alumni-filter-stream",
+  filterSearch: "alumni-filter-search",
+  applyBtn: "alumni-filter-apply",
+  chatBtn: (id) => `alumni-chat-${id}`,
+  helpedBtn: (id) => `alumni-helped-${id}`,
+};
+
+export const ALUPAL = {
+  targetCollege: "alupal-target-college",
+  stream: "alupal-stream",
+  grade: "alupal-grade",
+  note: "alupal-note",
+  submitBtn: "alupal-submit",
+  reasoning: "alupal-reasoning",
+  matchList: "alupal-match-list",
+};
+
+export const LEADERBOARD = {
+  root: "leaderboard-root",
+  row: (id) => `leaderboard-row-${id}`,
+};
+
+export const CERT = {
+  root: "certificate-root",
+  downloadBtn: "certificate-download",
+  points: "certificate-points",
+  rank: "certificate-rank",
+  percentile: "certificate-percentile",
+};
