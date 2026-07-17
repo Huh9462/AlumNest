@@ -63,6 +63,7 @@ def create_token(user_id: str, email: str) -> str:
 def user_public(u: dict) -> dict:
     u = {**u}
     u.pop("password_hash", None)
+    u.pop("argus_password_hash", None)
     u.pop("_id", None)
     return u
 
@@ -95,10 +96,19 @@ class RegisterInput(BaseModel):
     working_hours_end: Optional[str] = "16:00"
     id_card_base64: str  # required proof of student status
     avatar_url: Optional[str] = None
+    # Optional Argus (Lighthouse Learning EuroSchool portal) linking
+    argus_id: Optional[str] = None  # Enrollment # / Phone / User ID
+    argus_password: Optional[str] = None  # user-set password to log back in via Argus
+    argus_role: Optional[str] = None  # "student" | "staff" | "parent"
 
 class LoginInput(BaseModel):
     email: EmailStr
     password: str
+
+class ArgusLoginInput(BaseModel):
+    argus_id: str = Field(min_length=1)
+    argus_password: str = Field(min_length=1)
+    argus_role: Optional[str] = "student"
 
 class UpdateProfileInput(BaseModel):
     name: Optional[str] = None
@@ -127,6 +137,17 @@ async def register(body: RegisterInput):
     if body.role not in ("alumni", "junior"):
         raise HTTPException(400, "role must be alumni or junior")
 
+    # If linking Argus, ensure argus_id is unique
+    argus_id_norm = None
+    argus_password_hash = None
+    if body.argus_id:
+        argus_id_norm = body.argus_id.strip()
+        if not body.argus_password or len(body.argus_password) < 4:
+            raise HTTPException(400, "Argus password must be at least 4 characters")
+        if await db.users.find_one({"argus_id": argus_id_norm}):
+            raise HTTPException(400, "This Argus ID is already linked to another account")
+        argus_password_hash = hash_password(body.argus_password)
+
     user_id = str(uuid.uuid4())
     doc = {
         "id": user_id,
@@ -143,6 +164,10 @@ async def register(body: RegisterInput):
         "working_hours_end": body.working_hours_end or "16:00",
         "id_card_base64": body.id_card_base64,
         "avatar_url": body.avatar_url,
+        "argus_id": argus_id_norm,
+        "argus_password_hash": argus_password_hash,
+        "argus_role": body.argus_role,
+        "argus_linked": bool(argus_id_norm),
         "id_verified": True,  # Auto-verified in MVP (Phase 2: manual review)
         "points": 0,
         "juniors_helped": 0,
@@ -160,6 +185,24 @@ async def login(body: LoginInput):
     if not user or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(401, "Invalid email or password")
     token = create_token(user["id"], email)
+    return {"token": token, "user": user_public(user)}
+
+@api.post("/auth/argus-login")
+async def argus_login(body: ArgusLoginInput):
+    """Log in with a linked Argus (Lighthouse Learning EuroSchool) ID + password.
+
+    Note: Alumnest cannot verify credentials against the live Argus portal without an
+    official Lighthouse Learning API. Users set an Argus password at signup which is
+    what we verify here. Once Lighthouse Learning exposes a server-to-server verify
+    endpoint we will swap this to a real handshake.
+    """
+    argus_id = body.argus_id.strip()
+    user = await db.users.find_one({"argus_id": argus_id})
+    if not user or not user.get("argus_password_hash"):
+        raise HTTPException(401, "No Alumnest account linked to that Argus ID. Sign up first.")
+    if not verify_password(body.argus_password, user["argus_password_hash"]):
+        raise HTTPException(401, "Invalid Argus ID or password")
+    token = create_token(user["id"], user["email"])
     return {"token": token, "user": user_public(user)}
 
 @api.get("/auth/me")
@@ -463,6 +506,7 @@ async def seed_admin():
 async def _startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
+    await db.users.create_index("argus_id", unique=True, sparse=True)
     await seed_admin()
     await seed_demo()
 

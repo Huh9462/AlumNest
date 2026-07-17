@@ -37,6 +37,14 @@ export const AUTH = {
   submitBtn: "auth-submit",
   switchModeLink: "auth-switch-mode",
   errorMsg: "auth-error",
+  // Argus (Lighthouse Learning EuroSchool) linking
+  tabEmail: "auth-tab-email",
+  tabArgus: "auth-tab-argus",
+  argusId: "auth-argus-id",
+  argusPassword: "auth-argus-password",
+  argusRole: "auth-argus-role",
+  argusSubmit: "auth-argus-submit",
+  linkArgusToggle: "auth-link-argus-toggle",
 };
 
 export const ALUMNI = {

@@ -4,7 +4,7 @@ import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { AUTH } from "@/constants/testIds";
 import { toast } from "sonner";
-import { Upload, CheckCircle2 } from "lucide-react";
+import { Upload, CheckCircle2, IdCard } from "lucide-react";
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -25,10 +25,13 @@ export default function Signup() {
   });
   const [idCard, setIdCard] = useState("");
   const [idCardName, setIdCardName] = useState("");
+  const [linkArgus, setLinkArgus] = useState(false);
+  const [argus, setArgus] = useState({ argus_id: "", argus_password: "", argus_role: "student" });
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const setA = (k) => (e) => setArgus({ ...argus, [k]: e.target.value });
 
   const onFile = async (e) => {
     const file = e.target.files?.[0];
@@ -43,11 +46,19 @@ export default function Signup() {
     e.preventDefault();
     setErr("");
     if (!idCard) { setErr("Please upload your student/university ID card."); return; }
+    if (linkArgus) {
+      if (!argus.argus_id.trim()) { setErr("Enter your Argus Enrollment/Phone/User ID."); return; }
+      if (!argus.argus_password || argus.argus_password.length < 4) { setErr("Argus password must be at least 4 characters."); return; }
+    }
     setBusy(true);
     try {
       const payload = { ...f, id_card_base64: idCard };
       if (f.role === "alumni") delete payload.grade;
-      if (f.role === "junior") { /* keep grade */ }
+      if (linkArgus) {
+        payload.argus_id = argus.argus_id.trim();
+        payload.argus_password = argus.argus_password;
+        payload.argus_role = argus.argus_role;
+      }
       const { data } = await api.post("/auth/register", payload);
       login(data.token, data.user);
       toast.success("Welcome to Alumnest!");
@@ -97,8 +108,9 @@ export default function Signup() {
               <input required className="aln-input mt-1" value={f.name} onChange={set("name")} data-testid={AUTH.nameInput} />
             </div>
             <div>
-              <label className="text-xs uppercase font-black tracking-widest">Email</label>
-              <input type="email" required className="aln-input mt-1" value={f.email} onChange={set("email")} data-testid={AUTH.emailInput} />
+              <label className="text-xs uppercase font-black tracking-widest">School email</label>
+              <input type="email" required className="aln-input mt-1" placeholder="you@yourschool.edu"
+                value={f.email} onChange={set("email")} data-testid={AUTH.emailInput} />
             </div>
           </div>
 
@@ -164,6 +176,57 @@ export default function Signup() {
               </div>
             </>
           )}
+
+          <div className="aln-card-flat p-4" style={{ background: linkArgus ? "#dbeafe" : "#fff" }}>
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1 w-5 h-5 accent-[#171717]"
+                checked={linkArgus}
+                onChange={(e) => setLinkArgus(e.target.checked)}
+                data-testid={AUTH.linkArgusToggle}
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <IdCard className="w-5 h-5" />
+                  <span className="font-display font-bold">Link my Argus account</span>
+                  <span className="aln-chip text-[10px]" style={{ background: "#fef08a" }}>Optional</span>
+                </div>
+                <p className="text-xs text-[#404040] mt-1">
+                  Argus is EuroSchool's portal by Lighthouse Learning. Linking lets you sign in later with
+                  your Argus Enrollment/Phone/User ID and an Argus password of your choice.
+                </p>
+              </div>
+            </label>
+
+            {linkArgus && (
+              <div className="mt-4 grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs uppercase font-black tracking-widest">I am a</label>
+                  <select className="aln-input mt-1" value={argus.argus_role} onChange={setA("argus_role")}
+                    data-testid={AUTH.argusRole}>
+                    <option value="student">Student</option>
+                    <option value="staff">Staff</option>
+                    <option value="parent">Parent</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs uppercase font-black tracking-widest">
+                    Enrollment # / Phone / User ID
+                  </label>
+                  <input className="aln-input mt-1" placeholder="e.g. 24051234"
+                    value={argus.argus_id} onChange={setA("argus_id")} data-testid={AUTH.argusId} />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-xs uppercase font-black tracking-widest">
+                    Argus password (set your own, min 4)
+                  </label>
+                  <input type="password" className="aln-input mt-1"
+                    value={argus.argus_password} onChange={setA("argus_password")} data-testid={AUTH.argusPassword} />
+                </div>
+              </div>
+            )}
+          </div>
 
           <div>
             <label className="text-xs uppercase font-black tracking-widest">
