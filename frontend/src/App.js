@@ -11,6 +11,7 @@ import AluPal from "@/pages/AluPal";
 import Leaderboard from "@/pages/Leaderboard";
 import Certificate from "@/pages/Certificate";
 import Chat from "@/pages/Chat";
+import FavouritesReminder from "@/components/FavouritesReminder";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
       <BrowserRouter>
         <AuthProvider>
           <Nav />
+          <FavouritesReminder />
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />

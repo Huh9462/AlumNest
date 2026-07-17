@@ -90,6 +90,16 @@ export const CHAT = {
   closedBanner: "chat-closed-banner",
   emptyState: "chat-empty-state",
   header: "chat-header",
+  reportBtn: "chat-report-btn",
+  reportDialog: "chat-report-dialog",
+  reportReason: (r) => `chat-report-reason-${r}`,
+  reportNote: "chat-report-note",
+  reportSubmit: "chat-report-submit",
+  reportCancel: "chat-report-cancel",
+};
+
+export const FAV = {
+  toggle: (id) => `fav-toggle-${id}`,
 };
 
 export const CERT = {
@@ -98,4 +108,11 @@ export const CERT = {
   points: "certificate-points",
   rank: "certificate-rank",
   percentile: "certificate-percentile",
+  weekHelped: "certificate-week-helped",
+  monthHelped: "certificate-month-helped",
+  streak: "certificate-streak",
+  avgReply: "certificate-avg-reply",
+  trusted: "certificate-trusted",
+  recentList: "certificate-recent-list",
+  badges: "certificate-badges",
 };

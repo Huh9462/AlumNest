@@ -62,7 +62,7 @@ export default function Nav() {
               </span>
             </NavLink>
           )}
-          {user && (
+          {user && user.role === "alumni" && (
             <NavLink to="/certificate" className={linkCls} data-testid={NAV.linkCertificate}>My Card</NavLink>
           )}
         </nav>

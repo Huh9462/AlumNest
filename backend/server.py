@@ -297,23 +297,128 @@ async def leaderboard_schools():
 
 @api.get("/certificate/me")
 async def my_certificate(user=Depends(get_current_user)):
-    # rank calculation
+    """Mentor scorecard — alumni-only. Returns rich accountability data."""
+    if user.get("role") != "alumni":
+        raise HTTPException(403, "Scorecard is only available for alumni mentors")
+
+    # Rank
     higher = await db.users.count_documents({
         "role": "alumni",
         "points": {"$gt": user.get("points", 0)}
     })
-    rank = higher + 1 if user.get("role") == "alumni" else None
+    rank = higher + 1
     total = await db.users.count_documents({"role": "alumni"})
-    percentile = None
-    if rank and total:
-        percentile = max(1, round(100 * (1 - (rank - 1) / max(total, 1))))
+    percentile = max(1, round(100 * (1 - (rank - 1) / max(total, 1)))) if total else None
+
+    # Weekly / monthly helped counts
+    now = now_utc()
+    week_since = (now - timedelta(days=7)).isoformat()
+    month_since = (now - timedelta(days=30)).isoformat()
+    week_helped = await db.help_logs.count_documents({"mentor_id": user["id"], "created_at": {"$gte": week_since}})
+    month_helped = await db.help_logs.count_documents({"mentor_id": user["id"], "created_at": {"$gte": month_since}})
+
+    # Recent juniors helped (last 5)
+    recent_logs = await db.help_logs.find({"mentor_id": user["id"]}).sort("created_at", -1).limit(5).to_list(5)
+    recent = []
+    for lg in recent_logs:
+        junior = await db.users.find_one({"id": lg["junior_id"]})
+        if junior:
+            recent.append({
+                "name": junior.get("name"),
+                "school": junior.get("school"),
+                "grade": junior.get("grade"),
+                "when": lg["created_at"],
+                "note": lg.get("note") or "",
+            })
+
+    # Last helped timestamp
+    last_log = await db.help_logs.find({"mentor_id": user["id"]}).sort("created_at", -1).limit(1).to_list(1)
+    last_helped_at = last_log[0]["created_at"] if last_log else None
+
+    # Response time — average minutes between an incoming msg and this alumni's next reply,
+    # over the last 30 alumni-sent messages.
+    my_replies = await db.messages.find({"sender_id": user["id"]}).sort("created_at", -1).limit(30).to_list(30)
+    deltas = []
+    for r in my_replies:
+        prior = await db.messages.find({
+            "conversation_id": r["conversation_id"],
+            "recipient_id": user["id"],
+            "created_at": {"$lt": r["created_at"]},
+        }).sort("created_at", -1).limit(1).to_list(1)
+        if prior:
+            try:
+                t1 = datetime.fromisoformat(prior[0]["created_at"])
+                t2 = datetime.fromisoformat(r["created_at"])
+                d = (t2 - t1).total_seconds() / 60.0
+                if 0 < d < 60 * 24 * 3:  # ignore >3d as inactive
+                    deltas.append(d)
+            except Exception:
+                pass
+    avg_reply_min = round(sum(deltas) / len(deltas)) if deltas else None
+
+    # Total messages sent by this alumni
+    msgs_sent = await db.messages.count_documents({"sender_id": user["id"]})
+    # Unique juniors chatted with
+    unique_convs = await db.messages.distinct("conversation_id", {"$or": [
+        {"sender_id": user["id"]}, {"recipient_id": user["id"]}
+    ]})
+    conversations_count = len(unique_convs)
+
+    # Trusted connections count
+    trusted_count = len(user.get("trusted_ids") or [])
+
+    # Consecutive weeks with at least 1 help (streak in weeks)
+    streak_weeks = 0
+    for w in range(0, 52):
+        w_start = (now - timedelta(days=(w + 1) * 7)).isoformat()
+        w_end = (now - timedelta(days=w * 7)).isoformat()
+        c = await db.help_logs.count_documents({
+            "mentor_id": user["id"],
+            "created_at": {"$gte": w_start, "$lt": w_end},
+        })
+        if c > 0:
+            streak_weeks += 1
+        else:
+            break
+
+    # Badges (light, playful)
+    badges = []
+    if rank <= 3:
+        badges.append({"label": f"Top {rank}", "tone": "yellow"})
+    elif percentile and percentile >= 90:
+        badges.append({"label": "Top 10%", "tone": "mint"})
+    if week_helped >= 3:
+        badges.append({"label": "Rising this week", "tone": "coral"})
+    if trusted_count >= 3:
+        badges.append({"label": f"{trusted_count} trusted", "tone": "blue"})
+    if streak_weeks >= 4:
+        badges.append({"label": f"{streak_weeks}w streak", "tone": "mint"})
+    if avg_reply_min is not None and avg_reply_min <= 10:
+        badges.append({"label": "Fast responder", "tone": "yellow"})
+
     return {
         "user": user_public(user),
+        "certificate_id": f"ALN-{user['id'][:8].upper()}",
+        "issued_at": now.isoformat(),
         "rank": rank,
         "total_alumni": total,
         "percentile": percentile,
-        "issued_at": now_utc().isoformat(),
-        "certificate_id": f"ALN-{user['id'][:8].upper()}",
+        "points": user.get("points", 0),
+        "juniors_helped_total": user.get("juniors_helped", 0),
+        "week_helped": week_helped,
+        "month_helped": month_helped,
+        "last_helped_at": last_helped_at,
+        "recent_helped": recent,
+        "avg_reply_minutes": avg_reply_min,
+        "messages_sent": msgs_sent,
+        "conversations_count": conversations_count,
+        "trusted_count": trusted_count,
+        "streak_weeks": streak_weeks,
+        "working_hours_start": user.get("working_hours_start"),
+        "working_hours_end": user.get("working_hours_end"),
+        "member_since": user.get("created_at"),
+        "id_verified": user.get("id_verified", False),
+        "badges": badges,
     }
 
 @api.post("/mentor/log-help")
@@ -472,6 +577,75 @@ async def trusted_remove(junior_id: str, user=Depends(get_current_user)):
         raise HTTPException(403, "Only alumni can manage trusted connections")
     await db.users.update_one({"id": user["id"]}, {"$pull": {"trusted_ids": junior_id}})
     return {"ok": True, "trusted": False}
+
+# ---------------- Favourites (juniors) ----------------
+class FavouriteToggleOutput(BaseModel):
+    favourited: bool
+
+@api.get("/favourites")
+async def favourites_list(user=Depends(get_current_user)):
+    """Return current user's favourite mentors with next-window info for push alerts."""
+    ids = user.get("favourite_mentor_ids") or []
+    if not ids:
+        return []
+    users = await db.users.find({"id": {"$in": ids}, "role": "alumni"}).to_list(200)
+    out = []
+    for u in users:
+        pu = user_public(u)
+        pu["available_now"] = is_available_now(u)
+        pu["next_open_in_min"] = _minutes_until_window(u)
+        out.append(pu)
+    return out
+
+@api.post("/favourites/{mentor_id}")
+async def favourite_toggle(mentor_id: str, user=Depends(get_current_user)):
+    mentor = await db.users.find_one({"id": mentor_id, "role": "alumni"})
+    if not mentor:
+        raise HTTPException(404, "Mentor not found")
+    current = user.get("favourite_mentor_ids") or []
+    if mentor_id in current:
+        await db.users.update_one({"id": user["id"]}, {"$pull": {"favourite_mentor_ids": mentor_id}})
+        return {"favourited": False}
+    await db.users.update_one({"id": user["id"]}, {"$addToSet": {"favourite_mentor_ids": mentor_id}})
+    return {"favourited": True}
+
+# ---------------- Reports ----------------
+class ReportInput(BaseModel):
+    reported_user_id: str
+    reason: str = Field(min_length=1, max_length=64)
+    note: Optional[str] = Field(default="", max_length=1000)
+    conversation_id: Optional[str] = None
+
+@api.post("/reports")
+async def submit_report(body: ReportInput, user=Depends(get_current_user)):
+    reported = await db.users.find_one({"id": body.reported_user_id})
+    if not reported:
+        raise HTTPException(404, "Reported user not found")
+    if reported["id"] == user["id"]:
+        raise HTTPException(400, "Cannot report yourself")
+    rec = {
+        "id": str(uuid.uuid4()),
+        "reporter_id": user["id"],
+        "reporter_name": user.get("name"),
+        "reporter_role": user.get("role"),
+        "reported_user_id": body.reported_user_id,
+        "reported_user_name": reported.get("name"),
+        "reason": body.reason,
+        "note": body.note or "",
+        "conversation_id": body.conversation_id,
+        "status": "open",
+        "created_at": now_utc().isoformat(),
+    }
+    await db.reports.insert_one(rec)
+    rec.pop("_id", None)
+    return {"ok": True, "report_id": rec["id"]}
+
+@api.get("/admin/reports")
+async def admin_list_reports(user=Depends(get_current_user), status: str = "open"):
+    if user.get("role") != "admin":
+        raise HTTPException(403, "Admin only")
+    cursor = db.reports.find({"status": status}).sort("created_at", -1).limit(200)
+    return [{k: v for k, v in r.items() if k != "_id"} for r in await cursor.to_list(200)]
 
 
 # ---------------- AluPal AI ----------------

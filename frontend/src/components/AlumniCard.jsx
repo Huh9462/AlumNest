@@ -1,16 +1,25 @@
-import { GraduationCap, MessageCircle, Sparkles, TrendingUp } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  GraduationCap, MessageCircle, Sparkles, TrendingUp, Heart, HeartOff,
+} from "lucide-react";
 import WorkingHoursPill from "./WorkingHoursPill";
-import { ALUMNI } from "@/constants/testIds";
+import { ALUMNI, FAV } from "@/constants/testIds";
 import { api, formatApiError } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
 export default function AlumniCard({ alumni, showWhy = false, onHelped }) {
-  const { user } = useAuth();
+  const { user, refreshMe } = useAuth();
   const nav = useNavigate();
   const initials = (alumni.name || "?")
     .split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
+  const [fav, setFav] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
+
+  useEffect(() => {
+    setFav(!!(user?.favourite_mentor_ids || []).includes(alumni.id));
+  }, [user, alumni.id]);
 
   const handleHelped = async () => {
     try {
@@ -31,6 +40,33 @@ export default function AlumniCard({ alumni, showWhy = false, onHelped }) {
     nav(`/chat/${alumni.id}`);
   };
 
+  const toggleFav = async () => {
+    if (favBusy) return;
+    if (!user) {
+      toast.error("Sign in to save favourites and get open-window alerts.");
+      nav("/login");
+      return;
+    }
+    setFavBusy(true);
+    try {
+      const { data } = await api.post(`/favourites/${alumni.id}`);
+      setFav(data.favourited);
+      if (data.favourited) {
+        toast.success(`Following ${alumni.name}. We'll ping you 15 min before their window opens.`);
+        try {
+          if ("Notification" in window && Notification.permission === "default") {
+            Notification.requestPermission().catch(() => {});
+          }
+        } catch { /* ignore */ }
+      } else {
+        toast(`Unfollowed ${alumni.name}`);
+      }
+      refreshMe?.();
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally { setFavBusy(false); }
+  };
+
   return (
     <div className="aln-card p-5" data-testid={ALUMNI.card(alumni.id)}>
       <div className="flex items-start gap-4">
@@ -48,8 +84,25 @@ export default function AlumniCard({ alumni, showWhy = false, onHelped }) {
             >
               {alumni.name}
             </h3>
-            <div className="aln-chip" style={{ background: "#dbeafe" }}>
-              <TrendingUp className="w-3 h-3" /> {alumni.points || 0} pts
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="aln-chip" style={{ background: "#dbeafe" }}>
+                <TrendingUp className="w-3 h-3" /> {alumni.points || 0} pts
+              </div>
+              {user?.role === "junior" && (
+                <button
+                  onClick={toggleFav}
+                  disabled={favBusy}
+                  className="w-8 h-8 rounded-full border-2 border-[#171717] flex items-center justify-center transition-transform hover:-translate-y-0.5"
+                  style={{ background: fav ? "#ffedd5" : "#fff" }}
+                  aria-label={fav ? "Unfollow mentor" : "Follow mentor for open-window alerts"}
+                  data-testid={FAV.toggle(alumni.id)}
+                  title={fav ? "Following — you'll get a 15-min heads-up before their window opens" : "Get a 15-min heads-up before their working hours open"}
+                >
+                  {fav
+                    ? <Heart className="w-4 h-4" fill="#ef4444" stroke="#171717" strokeWidth={2} />
+                    : <HeartOff className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           </div>
           <p className="text-sm text-[#404040] flex items-center gap-1 mt-1">

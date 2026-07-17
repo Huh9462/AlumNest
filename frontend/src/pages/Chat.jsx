@@ -4,8 +4,9 @@ import { api, formatApiError } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { CHAT } from "@/constants/testIds";
 import WorkingHoursPill from "@/components/WorkingHoursPill";
-import { Send, Lock, Shield, ShieldCheck, ArrowLeft, MessagesSquare } from "lucide-react";
+import { Send, Lock, Shield, ShieldCheck, ArrowLeft, MessagesSquare, Flag } from "lucide-react";
 import { toast } from "sonner";
+import ReportDialog from "@/components/ReportDialog";
 
 function fmtTime(iso) {
   try {
@@ -72,6 +73,7 @@ function ThreadPanel({ otherId }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [trusting, setTrusting] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const listRef = useRef(null);
   const [pending, setPending] = useState([]);
 
@@ -187,6 +189,17 @@ function ThreadPanel({ otherId }) {
             {data.is_trusted ? (<><ShieldCheck className="w-4 h-4" /> Trusted</>) : (<><Shield className="w-4 h-4" /> Add trusted</>)}
           </button>
         )}
+        {!isAlumni && (
+          <button
+            onClick={() => setReportOpen(true)}
+            className="w-9 h-9 rounded-full border-2 border-[#171717] flex items-center justify-center hover:bg-[#ffedd5] transition-colors"
+            aria-label={`Report ${other.name}`}
+            title="Report abuse or ghosting"
+            data-testid={CHAT.reportBtn}
+          >
+            <Flag className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto p-4 space-y-2" data-testid={CHAT.thread}>
@@ -237,6 +250,13 @@ function ThreadPanel({ otherId }) {
             <Send className="w-4 h-4" />
           </button>
         </form>
+      )}
+      {reportOpen && (
+        <ReportDialog
+          reportedUser={other}
+          conversationId={`${user.id}_${other.id}`}
+          onClose={() => setReportOpen(false)}
+        />
       )}
     </div>
   );
