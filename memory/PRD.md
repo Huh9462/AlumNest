@@ -21,6 +21,12 @@ Alumnest connects Lighthouse Group (and other schools') alumni with their junior
 
 Supporting: 8 seeded demo alumni across IIT/AIIMS/SRCC/NLSIU/NID/IIM/BITS, "They helped me" quick log (+10 pts to mentor), sticky glass nav, landing page with bento hero + college marquee + how-it-works.
 
+## Phase 2 — In progress (2026-02-17)
+- **Real-time chat (polling every 3.5s)** — `POST /api/chat/send`, `GET /api/chat/conversations`, `GET /api/chat/messages/{id}`
+- **Working-hours enforcement** — junior→alumni sends are blocked outside the alumni's window with a clear "Opens in Xh Ym" error (HTTP 423)
+- **Trusted connections** — alumni can add a junior as trusted from the chat header; trusted juniors can DM 24/7 (`POST/DELETE /api/chat/trusted/{junior_id}`)
+- **Leaderboard upgrades** — filters: All-time vs This week (uses help_logs), by school; self-callout with "You are #X" and rank badge on your own row; live-polling nav badge for unread messages
+
 ## Phase 2 — Backlog (prioritised)
 ### P0 (safety + core flow)
 - Real-time DM (locked to working hours except for trusted connections)

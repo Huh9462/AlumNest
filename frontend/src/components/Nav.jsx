@@ -1,11 +1,28 @@
+import { useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 import { NAV } from "@/constants/testIds";
-import { LogOut, Sparkles } from "lucide-react";
+import { LogOut, Sparkles, MessageCircle } from "lucide-react";
 
 export default function Nav() {
   const { user, logout } = useAuth();
   const nav = useNavigate();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!user) { setUnread(0); return; }
+    let cancelled = false;
+    const load = () => {
+      api.get("/chat/conversations").then((r) => {
+        if (cancelled) return;
+        setUnread((r.data || []).reduce((a, c) => a + (c.unread || 0), 0));
+      }).catch(() => {});
+    };
+    load();
+    const id = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [user]);
 
   const linkCls = ({ isActive }) =>
     "px-3 py-1.5 rounded-full text-sm font-bold border-2 border-transparent transition-colors " +
@@ -29,6 +46,22 @@ export default function Nav() {
           <NavLink to="/alumni" className={linkCls} data-testid={NAV.linkAlumni}>Mentors</NavLink>
           <NavLink to="/alupal" className={linkCls} data-testid={NAV.linkAluPal}>AluPal AI</NavLink>
           <NavLink to="/leaderboard" className={linkCls} data-testid={NAV.linkLeaderboard}>Leaderboard</NavLink>
+          {user && (
+            <NavLink to="/chat" className={linkCls} data-testid={NAV.linkChat}>
+              <span className="inline-flex items-center gap-1">
+                <MessageCircle className="w-4 h-4" /> Chat
+                {unread > 0 && (
+                  <span
+                    className="ml-1 aln-chip text-[10px]"
+                    style={{ background: "#22c55e", color: "#fff" }}
+                    data-testid={NAV.chatBadge}
+                  >
+                    {unread}
+                  </span>
+                )}
+              </span>
+            </NavLink>
+          )}
           {user && (
             <NavLink to="/certificate" className={linkCls} data-testid={NAV.linkCertificate}>My Card</NavLink>
           )}

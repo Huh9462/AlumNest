@@ -128,6 +128,10 @@ class LogHelpInput(BaseModel):
     mentor_id: str
     junior_note: Optional[str] = ""
 
+class SendMessageInput(BaseModel):
+    recipient_id: str
+    text: str = Field(min_length=1, max_length=2000)
+
 # ---------------- Auth Routes ----------------
 @api.post("/auth/register")
 async def register(body: RegisterInput):
@@ -242,9 +246,42 @@ async def get_alumni(user_id: str):
     return user_public(user)
 
 # ---------------- Leaderboard & Scorecard ----------------
+def _conv_id(a: str, b: str) -> str:
+    return "_".join(sorted([a, b]))
+
 @api.get("/leaderboard")
-async def leaderboard():
-    cursor = db.users.find({"role": "alumni"}).sort([("points", -1), ("juniors_helped", -1)]).limit(50)
+async def leaderboard(scope: str = "all", school: Optional[str] = None):
+    """scope: 'all' | 'week'. When scope='week', points are counted from help_logs
+    in the last 7 days (10 pts per help)."""
+    query = {"role": "alumni"}
+    if school:
+        query["school"] = {"$regex": re.escape(school), "$options": "i"}
+
+    if scope == "week":
+        since = (now_utc() - timedelta(days=7)).isoformat()
+        # aggregate help_logs in window per mentor
+        pipeline = [
+            {"$match": {"created_at": {"$gte": since}}},
+            {"$group": {"_id": "$mentor_id", "week_helped": {"$sum": 1}}},
+        ]
+        agg = await db.help_logs.aggregate(pipeline).to_list(1000)
+        weekly = {a["_id"]: a["week_helped"] for a in agg}
+        users = await db.users.find(query).to_list(500)
+        rows = []
+        for u in users:
+            wh = weekly.get(u["id"], 0)
+            rows.append((u, wh))
+        rows.sort(key=lambda r: (r[1], r[0].get("points", 0)), reverse=True)
+        result = []
+        for i, (u, wh) in enumerate(rows[:50], start=1):
+            pu = user_public(u)
+            pu["rank"] = i
+            pu["week_points"] = wh * 10
+            pu["week_helped"] = wh
+            result.append(pu)
+        return result
+
+    cursor = db.users.find(query).sort([("points", -1), ("juniors_helped", -1)]).limit(50)
     users = await cursor.to_list(50)
     result = []
     for i, u in enumerate(users, start=1):
@@ -252,6 +289,11 @@ async def leaderboard():
         pu["rank"] = i
         result.append(pu)
     return result
+
+@api.get("/leaderboard/schools")
+async def leaderboard_schools():
+    schools = await db.users.distinct("school", {"role": "alumni"})
+    return sorted([s for s in schools if s])
 
 @api.get("/certificate/me")
 async def my_certificate(user=Depends(get_current_user)):
@@ -302,6 +344,135 @@ async def log_help(body: LogHelpInput, user=Depends(get_current_user)):
         {"$inc": {"points": 10, "juniors_helped": 1}}
     )
     return {"ok": True, "points_awarded": 10}
+
+# ---------------- Chat ----------------
+def _alumni_available_now(alumni_user: dict) -> bool:
+    return is_available_now(alumni_user)
+
+def _minutes_until_window(alumni_user: dict) -> Optional[int]:
+    s = _parse_time(alumni_user.get("working_hours_start") or "")
+    if not s:
+        return None
+    now = datetime.now(timezone.utc)
+    now_min = now.hour * 60 + now.minute
+    s_min = s.hour * 60 + s.minute
+    diff = s_min - now_min
+    if diff < 0:
+        diff += 24 * 60
+    return diff
+
+@api.post("/chat/send")
+async def chat_send(body: SendMessageInput, user=Depends(get_current_user)):
+    recipient = await db.users.find_one({"id": body.recipient_id})
+    if not recipient:
+        raise HTTPException(404, "Recipient not found")
+    if recipient["id"] == user["id"]:
+        raise HTTPException(400, "Cannot message yourself")
+
+    # Enforce working-hours boundary: junior -> alumni only during window,
+    # unless the alumni has added this junior as a trusted connection.
+    if user["role"] == "junior" and recipient["role"] == "alumni":
+        trusted_ids = recipient.get("trusted_ids") or []
+        if user["id"] not in trusted_ids and not _alumni_available_now(recipient):
+            mins = _minutes_until_window(recipient) or 0
+            h, m = mins // 60, mins % 60
+            open_in = f"{h}h {m}m" if h else f"{m}m"
+            raise HTTPException(
+                423,
+                f"{recipient['name']}'s working hours are closed. Opens in {open_in} "
+                f"({recipient.get('working_hours_start')}–{recipient.get('working_hours_end')})."
+            )
+
+    msg = {
+        "id": str(uuid.uuid4()),
+        "conversation_id": _conv_id(user["id"], recipient["id"]),
+        "sender_id": user["id"],
+        "recipient_id": recipient["id"],
+        "text": body.text.strip(),
+        "created_at": now_utc().isoformat(),
+        "read": False,
+    }
+    await db.messages.insert_one(msg)
+    msg.pop("_id", None)
+    return msg
+
+@api.get("/chat/conversations")
+async def chat_conversations(user=Depends(get_current_user)):
+    """List conversations for current user with the counterpart's profile + last message + unread."""
+    pipeline = [
+        {"$match": {"$or": [{"sender_id": user["id"]}, {"recipient_id": user["id"]}]}},
+        {"$sort": {"created_at": -1}},
+        {"$group": {
+            "_id": "$conversation_id",
+            "last": {"$first": "$$ROOT"},
+            "messages": {"$push": "$$ROOT"},
+        }},
+        {"$sort": {"last.created_at": -1}},
+        {"$limit": 100},
+    ]
+    convs = await db.messages.aggregate(pipeline).to_list(100)
+    out = []
+    for c in convs:
+        last = c["last"]
+        other_id = last["recipient_id"] if last["sender_id"] == user["id"] else last["sender_id"]
+        other = await db.users.find_one({"id": other_id})
+        if not other:
+            continue
+        unread = sum(1 for m in c["messages"] if m["recipient_id"] == user["id"] and not m.get("read"))
+        out.append({
+            "conversation_id": c["_id"],
+            "other": user_public(other),
+            "last_message": {
+                "text": last["text"],
+                "sender_id": last["sender_id"],
+                "created_at": last["created_at"],
+            },
+            "unread": unread,
+        })
+    return out
+
+@api.get("/chat/messages/{other_id}")
+async def chat_messages(other_id: str, user=Depends(get_current_user)):
+    other = await db.users.find_one({"id": other_id})
+    if not other:
+        raise HTTPException(404, "User not found")
+    conv = _conv_id(user["id"], other_id)
+    msgs = await db.messages.find({"conversation_id": conv}).sort("created_at", 1).to_list(500)
+    # mark incoming as read
+    await db.messages.update_many(
+        {"conversation_id": conv, "recipient_id": user["id"], "read": False},
+        {"$set": {"read": True}},
+    )
+    trusted_ids = other.get("trusted_ids") or []
+    return {
+        "other": user_public(other),
+        "messages": [{k: v for k, v in m.items() if k != "_id"} for m in msgs],
+        "can_send_now": (
+            True if user["role"] == "alumni"
+            else (user["id"] in trusted_ids or _alumni_available_now(other))
+            if other["role"] == "alumni" else True
+        ),
+        "is_trusted": user["id"] in trusted_ids,
+        "next_open_in_min": _minutes_until_window(other) if other["role"] == "alumni" else None,
+    }
+
+@api.post("/chat/trusted/{junior_id}")
+async def trusted_add(junior_id: str, user=Depends(get_current_user)):
+    if user["role"] != "alumni":
+        raise HTTPException(403, "Only alumni can add trusted connections")
+    junior = await db.users.find_one({"id": junior_id})
+    if not junior:
+        raise HTTPException(404, "User not found")
+    await db.users.update_one({"id": user["id"]}, {"$addToSet": {"trusted_ids": junior_id}})
+    return {"ok": True, "trusted": True}
+
+@api.delete("/chat/trusted/{junior_id}")
+async def trusted_remove(junior_id: str, user=Depends(get_current_user)):
+    if user["role"] != "alumni":
+        raise HTTPException(403, "Only alumni can manage trusted connections")
+    await db.users.update_one({"id": user["id"]}, {"$pull": {"trusted_ids": junior_id}})
+    return {"ok": True, "trusted": False}
+
 
 # ---------------- AluPal AI ----------------
 def _parse_time(t: str) -> Optional[dtime]:
@@ -506,7 +677,20 @@ async def seed_admin():
 async def _startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
-    await db.users.create_index("argus_id", unique=True, sparse=True)
+    # Argus ID: only enforce uniqueness when it's actually set (partial index)
+    try:
+        await db.users.drop_index("argus_id_1")
+    except Exception:
+        pass
+    await db.users.create_index(
+        "argus_id",
+        unique=True,
+        partialFilterExpression={"argus_id": {"$type": "string"}},
+    )
+    await db.messages.create_index([("conversation_id", 1), ("created_at", 1)])
+    await db.messages.create_index("recipient_id")
+    await db.help_logs.create_index("created_at")
+    await db.help_logs.create_index("mentor_id")
     await seed_admin()
     await seed_demo()
 

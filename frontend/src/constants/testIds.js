@@ -72,6 +72,24 @@ export const ALUPAL = {
 export const LEADERBOARD = {
   root: "leaderboard-root",
   row: (id) => `leaderboard-row-${id}`,
+  scopeAll: "leaderboard-scope-all",
+  scopeWeek: "leaderboard-scope-week",
+  schoolFilter: "leaderboard-school-filter",
+  selfCallout: "leaderboard-self-callout",
+};
+
+export const CHAT = {
+  root: "chat-root",
+  convList: "chat-conv-list",
+  conv: (id) => `chat-conv-${id}`,
+  thread: "chat-thread",
+  input: "chat-input",
+  sendBtn: "chat-send",
+  message: (id) => `chat-message-${id}`,
+  trustToggle: "chat-trust-toggle",
+  closedBanner: "chat-closed-banner",
+  emptyState: "chat-empty-state",
+  header: "chat-header",
 };
 
 export const CERT = {

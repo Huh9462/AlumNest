@@ -10,6 +10,7 @@ import Alumni from "@/pages/Alumni";
 import AluPal from "@/pages/AluPal";
 import Leaderboard from "@/pages/Leaderboard";
 import Certificate from "@/pages/Certificate";
+import Chat from "@/pages/Chat";
 
 export default function App() {
   return (
@@ -25,6 +26,8 @@ export default function App() {
             <Route path="/alupal" element={<AluPal />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/certificate" element={<Certificate />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/chat/:userId" element={<Chat />} />
           </Routes>
           <Toaster position="top-right" richColors closeButton />
         </AuthProvider>

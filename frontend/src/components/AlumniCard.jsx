@@ -1,4 +1,5 @@
 import { GraduationCap, MessageCircle, Sparkles, TrendingUp } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import WorkingHoursPill from "./WorkingHoursPill";
 import { ALUMNI } from "@/constants/testIds";
 import { api, formatApiError } from "@/lib/api";
@@ -7,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function AlumniCard({ alumni, showWhy = false, onHelped }) {
   const { user } = useAuth();
+  const nav = useNavigate();
   const initials = (alumni.name || "?")
     .split(" ").map((s) => s[0]).slice(0, 2).join("").toUpperCase();
 
@@ -18,6 +20,15 @@ export default function AlumniCard({ alumni, showWhy = false, onHelped }) {
     } catch (e) {
       toast.error(formatApiError(e));
     }
+  };
+
+  const goChat = () => {
+    if (!user) {
+      toast.error("Please sign in to start a chat.");
+      nav("/login");
+      return;
+    }
+    nav(`/chat/${alumni.id}`);
   };
 
   return (
@@ -85,7 +96,7 @@ export default function AlumniCard({ alumni, showWhy = false, onHelped }) {
           <button
             className="aln-btn-primary text-sm"
             data-testid={ALUMNI.chatBtn(alumni.id)}
-            onClick={() => toast("Chat unlocks in Phase 2 — DM during working hours.", { duration: 2200 })}
+            onClick={goChat}
           >
             <MessageCircle className="w-4 h-4" /> Chat
           </button>
